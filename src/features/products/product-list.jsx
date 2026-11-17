@@ -6,16 +6,15 @@ import { useQuery } from "@tanstack/react-query";
 import { getProducts } from "@/services/product-service";
 import { useCartStore } from "@/store/cart-store";
 import { useWishlistStore } from "@/store/wishlist-store";
-import { Button } from "@/components/ui/button";
+
 import ProductSearch from "./product-search";
+import ProductCard from "./product-card";
 
 export default function ProductList() {
-  // Search, category and sorting states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortOrder, setSortOrder] = useState("default");
 
-  // Product categories
   const categories = [
     "all",
     "beauty",
@@ -32,7 +31,6 @@ export default function ProductList() {
     "sunglasses",
   ];
 
-  // Fetch products from API
   const {
     data: products = [],
     isLoading,
@@ -42,21 +40,37 @@ export default function ProductList() {
     queryFn: getProducts,
   });
 
-  // Zustand cart store
+  // Cart store
   const cart = useCartStore((state) => state.cart);
   const addToCart = useCartStore((state) => state.addToCart);
 
-  // Zustand wishlist store
+  // Wishlist store
   const wishlist = useWishlistStore((state) => state.wishlist);
   const addToWishlist = useWishlistStore(
     (state) => state.addToWishlist
   );
+  const removeFromWishlist = useWishlistStore(
+    (state) => state.removeFromWishlist
+  );
 
-  // Step 1: Filter products by search and category
+  // Toggle wishlist
+  function handleToggleWishlist(product) {
+    const alreadyWishlisted = wishlist.some(
+      (item) => item.id === product.id
+    );
+
+    if (alreadyWishlisted) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
+  }
+
+  // Filter products
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.title
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCategory =
       selectedCategory === "all" ||
@@ -65,7 +79,7 @@ export default function ProductList() {
     return matchesSearch && matchesCategory;
   });
 
-  // Step 2: Sort the filtered products by price
+  // Sort products
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortOrder === "low-to-high") {
       return a.price - b.price;
@@ -78,139 +92,97 @@ export default function ProductList() {
     return 0;
   });
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <p className="text-center mt-10">
-        Loading products...
-      </p>
-    );
-  }
-
-  // Error state
-  if (isError) {
-    return (
-      <p className="text-center mt-10 text-red-600">
-        Failed to load products.
-      </p>
-    );
-  }
-
   return (
-    <section className="max-w-7xl mx-auto px-6 py-10">
+    <div className="space-y-6 p-4">
 
-      {/* Header and counts */}
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-        <h2 className="text-3xl font-bold">
-          Explore Products
-        </h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">
+          ShopSphere AI
+        </h1>
 
-        <div className="flex gap-5 font-semibold">
-          <p>🛒 Cart: {cart.length}</p>
-          <p>❤️ Wishlist: {wishlist.length}</p>
+        <div className="flex gap-4 text-sm font-semibold">
+          <p>Cart: {cart.length}</p>
+          <p>Wishlist: {wishlist.length}</p>
         </div>
       </div>
 
-      {/* Search and sorting */}
-      <div className="mb-8 space-y-4">
+      <div className="flex flex-wrap items-center gap-4">
         <ProductSearch onSearch={setSearchTerm} />
 
         <select
           value={sortOrder}
           onChange={(e) => setSortOrder(e.target.value)}
-          className="border rounded-lg px-4 py-3 bg-white"
+          className="rounded-lg border border-gray-300 px-4 py-3"
         >
           <option value="default">Recommended</option>
-          <option value="low-to-high">
-            Price: Low to High
-          </option>
-          <option value="high-to-low">
-            Price: High to Low
-          </option>
+          <option value="low-to-high">Price: Low to High</option>
+          <option value="high-to-low">Price: High to Low</option>
         </select>
+      </div>
 
-        {/* Category buttons */}
-        <div className="flex flex-wrap gap-3">
+      <div>
+        <h2 className="mb-3 text-lg font-semibold">
+          Categories
+        </h2>
+
+        <div className="flex flex-wrap gap-2">
           {categories.map((category) => (
-            <Button
+            <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={
+              className={`rounded-lg border px-4 py-2 text-sm ${
                 selectedCategory === category
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-              }
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-gray-300 hover:bg-gray-100"
+              }`}
             >
               {category
                 .replace("mens-", "Men's ")
                 .replace("womens-", "Women's ")
                 .replace("-", " ")
-                .replace(/\b\w/g, (char) =>
-                  char.toUpperCase()
-                )}
-            </Button>
+                .replace(/\b\w/g, (char) => char.toUpperCase())}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Product count */}
-      <p className="text-gray-500 mb-5">
+      <p className="text-sm text-gray-500">
         Showing {sortedProducts.length} products
       </p>
 
-      {/* Product grid */}
-      {sortedProducts.length === 0 ? (
-        <p className="text-gray-500">
-          No products found.
+      {isLoading && (
+        <p className="py-10 text-center">
+          Loading products...
         </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {sortedProducts.map((product) => (
-            <div
-              key={product.id}
-              className="border rounded-xl p-4 bg-white shadow-sm hover:shadow-lg transition"
-            >
-              <img
-                src={product.thumbnail}
-                alt={product.title}
-                className="w-full h-48 object-contain mb-4"
+      )}
+
+      {isError && (
+        <p className="py-10 text-center text-red-500">
+          Failed to load products. Please try again.
+        </p>
+      )}
+
+      {!isLoading && !isError && (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {sortedProducts.length > 0 ? (
+            sortedProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAddToCart={addToCart}
+                onToggleWishlist={handleToggleWishlist}
+                isWishlisted={wishlist.some(
+                  (item) => item.id === product.id
+                )}
               />
-
-              <h3 className="font-semibold text-lg line-clamp-1">
-                {product.title}
-              </h3>
-
-              <p className="text-gray-500 text-sm capitalize mt-1">
-                {product.category}
-              </p>
-
-              <p className="text-xl font-bold mt-3">
-                ₹{product.price}
-              </p>
-
-              <p className="text-yellow-600 text-sm mt-1">
-                ⭐ {product.rating}
-              </p>
-
-              <div className="flex flex-col gap-2 mt-4">
-                <Button
-                  onClick={() => addToCart(product)}
-                  className="w-full bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Add to Cart
-                </Button>
-
-                <Button
-                  onClick={() => addToWishlist(product)}
-                  className="w-full bg-purple-600 text-white hover:bg-purple-700"
-                >
-                  Add to Wishlist
-                </Button>
-              </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="col-span-full py-10 text-center text-gray-500">
+              No products found.
+            </p>
+          )}
         </div>
       )}
-    </section>
+    </div>
   );
 }
